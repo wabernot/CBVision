@@ -1,0 +1,19 @@
+#!/bin/bash
+fileName="/home/cristi/avedac/workFolder/McnS1_20120812/20120812"
+#fileName="/home/cristi/avedac/workFolder/IceS5_20120806/20120806"
+
+# --conversionOutputFile="$fileName".avi 
+CMD_LINE_RELEASE="bin/CBVision --inputFile="$fileName"*.mp4 --outputFile="$fileName"_processed.avi --clsResultsOutputFile="$fileName"_clsResults.csv --outputBitrate=900000 --eventMinArea=4000 --eventMaxArea=250000 --eventMinFrames=2 --eventMaxFrames=2000 --eventExpirationFrames=5 --segMinBlobSize=250 --segScanUnitSize=8 --segGapsScanDepth=1 --segMinDarkThreshold=7 --maskX=0 --maskY=0 --maskWidth=312 --maskHeight=24 --decoder=hikvision --cacheSize=200 --argTimestampSource=1 --outputFramerate=10 --clsLocation=1 "
+ # --showResults --saveResults --showResultsStartFrame=11434 --showResultsEndFrame=11436
+CMD_LINE_DEBUG="gdb --args $CMD_LINE_RELEASE"
+echo $CMD_LINE_RELEASE
+date
+case "$1" in
+	"release" | "" )
+	$CMD_LINE_RELEASE
+	;;
+	"debug" )
+	$CMD_LINE_DEBUG
+	;;
+esac
+date

@@ -1,0 +1,153 @@
+#!/bin/bash
+CC=g++
+LD=g++
+BIN_DIR=bin
+BUILD_DIR=build
+BUILD_LIB_DIR=$BUILD_DIR/lib
+SRC_DIR=src
+PROGRAM_NAME=CBVision
+PROGRAM_MAIN_SRC=$SRC_DIR/$PROGRAM_NAME.cpp
+LD_LIBRARY_PATH=/usr/lib
+CPPFLAGS="-c -Wall -Wno-reorder -g -O0 -I/usr/include -I/usr/include/gtk-2.0 -I/usr/include/glib-2.0 -I/usr/lib/i386-linux-gnu/glib-2.0/include -I/usr/include/cairo -I/usr/include/pango-1.0 -I/usr/lib/i386-linux-gnu/gtk-2.0/include -I/usr/include/gdk-pixbuf-2.0 -I/usr/include/atk-1.0 -D__STDC_CONSTANT_MACROS"
+#LDFLAGS="-sort-common -t -L/usr/lib/gcc/i686-linux-gnu/4.6 -Bdynamic -lavcodec -lavformat -lavutil -lm -lgcc -lstdc++ -lc"
+LDFLAGS="-shared-libgcc -Wl,-sort-common -lavcodec -lavformat -lavutil -lavdevice -lswscale -lgtk-3 -lgdk-3 -lPlayCtrl -lMPCtrl"
+PREPROCESSFLAGS="-M -MM"
+
+#do not change these vars - they are just for internal use
+BUILD_TIME=
+BUILD_TIME_STR=
+OBJS_COMPILED=""
+OBJS=""
+
+function envCreate()
+{
+	if [ ! -d $BUILD_DIR ]
+	then
+		mkdir $BUILD_DIR
+	fi
+	if [ ! -d $BUILD_LIB_DIR ]
+	then
+		mkdir $BUILD_LIB_DIR
+	fi
+	if [ ! -d $BIN_DIR ]
+	then
+		mkdir $BIN_DIR
+	fi
+}
+
+function compileAll()
+{
+	if [ -z $1 ]
+	then
+		echo "No file given as param for compileAll"
+		return 1
+	fi
+		
+	if [ ! -f $1 ]
+	then
+		echo "File $1 does not exist"
+		return 1
+	fi
+	local cppFileWithRelativePath=$1
+	local cppFileName=$(basename $cppFileWithRelativePath)
+	local cppFileRelativePath=${1%$cppFileName}
+	local baseFileName=${cppFileName%.*}
+	baseRelativePath=$cppFileRelativePath$baseFileName
+	local hFileRelativePath=$baseRelativePath.h
+	
+	local dependencies=`$CC $PREPROCESSFLAGS $cppFileWithRelativePath`
+	dependencies=${dependencies#*:}
+	dependencies=${dependencies/$cppFileWithRelativePath}
+	dependencies=${dependencies/$baseRelativePath.h}
+	local forceRecompile=0
+	local i
+	for i in $dependencies
+	do
+		if [ "$i" == "\\" ]
+		then
+			continue
+		fi
+		
+		local depFileRelativePath=${i/%.h/.cpp}
+		compileAll $depFileRelativePath
+		if [ $? -eq 1 ]
+		then
+			forceRecompile=1
+		fi
+	done
+
+	local objFileRelativePath=${cppFileRelativePath/#$SRC_DIR/$BUILD_LIB_DIR}
+	objFileWithRelativePath=$objFileRelativePath$baseFileName.o
+	local len=`echo "$OBJS"|grep $baseFileName.o`
+
+	if [ ${#len} -eq 0 ]
+	then
+		OBJS="$OBJS $objFileWithRelativePath"
+	fi
+	len=`echo "$OBJS_COMPILED"|grep $baseFileName.o`
+	if [ ${#len} -eq 0 ]
+	then	
+		if ( [ $forceRecompile == 1 ] || [ $cppFileWithRelativePath -nt $objFileWithRelativePath ] || [ $hFileRelativePath -nt $objFileWithRelativePath ] )
+		then
+			echo "Compiling file $cppFileWithRelativePath"
+			mkdir -p $objFileRelativePath
+			OBJS_COMPILED="$OBJS_COMPILED $objFileWithRelativePath"
+			$CC $CPPFLAGS $cppFileWithRelativePath -o $objFileWithRelativePath
+			if [ ! $? -eq 0 ]
+			then
+				echo "exit"
+				exit
+			fi
+			return 1
+		fi
+		return 0
+	fi
+	return 1
+}
+
+function makeAll()
+{
+	echo "Making all"
+	envCreate
+	if [ -f $BIN_DIR/$PROGRAM_NAME ]
+	then
+		BUILD_TIME=`stat -c %Y $BIN_DIR/$PROGRAM_NAME`
+		BUILD_TIME_STR=`stat -c %y $BIN_DIR/$PROGRAM_NAME`
+		echo "Last build stat: $BUILD_TIME_STR"
+	else
+		echo "No previous build found"
+	fi
+	compileAll $PROGRAM_MAIN_SRC
+	if [ ${#OBJS_COMPILED} -eq 0 ] && [ ! ${#BUILD_TIME} -eq 0 ]
+	then
+		echo "$BIN_DIR/$PROGRAM_NAME is up to date."
+	else
+		echo "Linking $BIN_DIR/$PROGRAM_NAME"
+		$LD $OBJS $LDFLAGS -o $BIN_DIR/$PROGRAM_NAME
+	fi
+}
+
+function cleanAll()
+{
+	echo "Cleaning all" 
+	if [ -d $BUILD_DIR ]
+	then
+		rm -R $BUILD_DIR
+	fi
+	if [ -d $BIN_DIR ]
+	then
+		rm -R $BIN_DIR
+	fi
+}
+
+case "$1" in
+	"" ) makeAll
+	;;
+	"release" ) makeAll
+	cp $BIN_DIR/$PROGRAM_NAME $BIN_DIR/$PROGRAM_NAME'_release'
+	;;
+	"clean" ) cleanAll
+	;;
+esac
+
+

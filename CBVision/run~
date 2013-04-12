@@ -1,0 +1,17 @@
+#!/bin/bash
+fileName="/home/ubuntu/CBVision/workFolder/20120806000000_20120806034448_0"
+
+CMD_LINE_RELEASE="bin/CBVision --inputFile="$fileName".mp4 --outputFile="$fileName"_processed.avi --outputBitrate=900000 --eventMinArea=1500 --eventMaxArea=250000 --eventMinFrames=2 --eventMaxFrames=2000 --eventExpirationFrames=5 --segMinBlobSize=50 --segScanUnitSize=8 --segGapsScanDepth=1 --segMinDarkThreshold=7 --maskX=0 --maskY=0 --maskWidth=312 --maskHeight=24 --decoder=hikvision --cacheSize=200 --argTimestampSource=1 --outputFramerate=10 -showResults"
+
+CMD_LINE_DEBUG="gdb --args $CMD_LINE_RELEASE"
+echo $CMD_LINE_RELEASE
+date
+case "$1" in
+	"release" | "" )
+	$CMD_LINE_RELEASE
+	;;
+	"debug" )
+	$CMD_LINE_DEBUG
+	;;
+esac
+date
